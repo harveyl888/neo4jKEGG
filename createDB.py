@@ -19,6 +19,10 @@ for ref in range(0, len(endList)-1):
     count1 = count2
     count2 = endList[ref]
     r = rclass[count1:count2]
-    print(count1)
-    print(r)
+    tokenList = ['ENTR', 'DEFI', 'RPAI', 'PATH']
+    tokens = {}
+    for line_i, line in enumerate(r, 1):
+        if line[0:4] in tokenList:
+            tokens[line[0:4]] = line_i
+    print(tokens)
 
