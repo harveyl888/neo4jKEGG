@@ -161,12 +161,10 @@ def createDB(triples, rclass, compounds):
     graph = Graph("localhost:7474/db/data/")
     graph.delete_all()
 
+    # iterate over each triple and add to database
     for i in triples[0:300]:
         c = [next((item for item in compounds if item['entry'] == i[0])), next((item for item in compounds if item['entry'] == i[1]))]
         r = next((item for item in rclass if item['entry'] == i[2]))
-
-        print(i)
-
         mergeText = ""
         for idx, compound in enumerate(c):
             mergeText += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
@@ -179,16 +177,7 @@ def createDB(triples, rclass, compounds):
         if r['definition']:
             mergeText += ", definition:{definition}".format(definition=r['definition'])
         mergeText += "}]->(c2)"
-
-        print(mergeText)
         graph.run(mergeText)
-
-#        graph.run("MERGE (c1:Compound{id:{id1}, mass:{m1}, pathways:{p1}}) "
-#                  "MERGE (c2:Compound{id:{id2}, mass:{m2}, pathways:{p2}}) "
-#                  "CREATE (c1)-[:REACTION{reaction:{reaction}, definition:{definition}}]->(c2)",
-#                  id1=i[0], m1=c1['mass'], p1=c1['pathway'], id2=i[1], m2=c2['mass'], p2=c2['pathway'],
-#                  reaction=i[2], definition=r['definition'])
-
 
 
 if __name__ == "__main__":
