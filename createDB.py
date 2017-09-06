@@ -154,6 +154,42 @@ def find_triples(rclass):
     return triples
 
 
+# Create and populate a neo4j database
+def createDB(triples, rclass, compounds):
+    from py2neo import authenticate, Graph
+    authenticate("localhost:7474", "neo4j", "neo4jpw")
+    graph = Graph("localhost:7474/db/data/")
+    graph.delete_all()
+
+    for i in triples[0:300]:
+        c = [next((item for item in compounds if item['entry'] == i[0])), next((item for item in compounds if item['entry'] == i[1]))]
+        r = next((item for item in rclass if item['entry'] == i[2]))
+
+        print(i)
+
+        mergeText = ""
+        for idx, compound in enumerate(c):
+            mergeText += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
+            if compound['mass']:
+                mergeText += ", mass:{mass}".format(mass=compound['mass'])
+            if compound['pathway']:
+                mergeText += ", pathways:{pathway}".format(pathway=compound['pathway'])
+            mergeText += "}) "
+        mergeText += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=i[2])
+        if r['definition']:
+            mergeText += ", definition:{definition}".format(definition=r['definition'])
+        mergeText += "}]->(c2)"
+
+        print(mergeText)
+        graph.run(mergeText)
+
+#        graph.run("MERGE (c1:Compound{id:{id1}, mass:{m1}, pathways:{p1}}) "
+#                  "MERGE (c2:Compound{id:{id2}, mass:{m2}, pathways:{p2}}) "
+#                  "CREATE (c1)-[:REACTION{reaction:{reaction}, definition:{definition}}]->(c2)",
+#                  id1=i[0], m1=c1['mass'], p1=c1['pathway'], id2=i[1], m2=c2['mass'], p2=c2['pathway'],
+#                  reaction=i[2], definition=r['definition'])
+
+
 
 if __name__ == "__main__":
     main()
