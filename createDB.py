@@ -6,6 +6,7 @@ import re
 def main():
     rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
+    triples = find_triples(rclass)
     return 0
 
 
@@ -143,5 +144,18 @@ def kegg_compounds(filename):
     return compoundData
 
 
+def find_triples(rclass):
+    triples = []
+    for r in rclass:
+        for p in r['rpairs']:
+            rpair_triple = p.split("_")
+            rpair_triple.append(r["entry"])
+            triples.append(rpair_triple)
+    return triples
+
+
+
 if __name__ == "__main__":
     main()
+
+
