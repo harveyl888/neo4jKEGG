@@ -1,12 +1,13 @@
 #!/usr/bin/python
 
 import re
-
+from progress.bar import Bar
 
 def main():
     rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
+    createDB(triples, rclass, compounds)
     return 0
 
 
@@ -162,23 +163,33 @@ def createDB(triples, rclass, compounds):
     graph.delete_all()
 
     # iterate over each triple and add to database
-    for i in triples[0:300]:
-        c = [next((item for item in compounds if item['entry'] == i[0])), next((item for item in compounds if item['entry'] == i[1]))]
-        r = next((item for item in rclass if item['entry'] == i[2]))
-        mergeText = ""
-        for idx, compound in enumerate(c):
-            mergeText += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
-            if compound['mass']:
-                mergeText += ", mass:{mass}".format(mass=compound['mass'])
-            if compound['pathway']:
-                mergeText += ", pathways:{pathway}".format(pathway=compound['pathway'])
-            mergeText += "}) "
-        mergeText += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=i[2])
-        if r['definition']:
-            mergeText += ", definition:{definition}".format(definition=r['definition'])
-        mergeText += "}]->(c2)"
-        graph.run(mergeText)
-
+    bar = Bar("Processing", max=len(triples))
+    errorList = []
+    for index, t in enumerate(triples):
+        try:
+            c = [next((item for item in compounds if item['entry'] == t[0])), next((item for item in compounds if item['entry'] == t[1]))]
+            r = next((item for item in rclass if item['entry'] == t[2]))
+            mergeText = ""
+            for idx, compound in enumerate(c):
+                mergeText += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
+                if compound['mass']:
+                    mergeText += ", mass:{mass}".format(mass=compound['mass'])
+                if compound['pathway']:
+                    mergeText += ", pathways:{pathway}".format(pathway=compound['pathway'])
+                mergeText += "}) "
+            mergeText += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=t[2])
+            if r['definition']:
+                mergeText += ", definition:{definition}".format(definition=r['definition'])
+            mergeText += "}]->(c2)"
+            graph.run(mergeText)
+        except:
+            errorList.append("Error in triple[{i}] ({triple}) - not uploaded".format(i=index, triple=t))
+        bar.next()
+    bar.finish()
+    if len(errorList) > 0:
+        print("\n\n>>> ERRORS:")
+        print(errorList)
+    return
 
 if __name__ == "__main__":
     main()
