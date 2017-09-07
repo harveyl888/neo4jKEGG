@@ -6,11 +6,18 @@ from py2neo import authenticate, Graph
 
 
 def main():
+    ## Connect to neo4j
+    authenticate("localhost:7474", "neo4j", "neo4jpw")
+    graph = Graph("localhost:7474/db/data/")
+
+    ## Read in files and create a new database
     rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
-    createDB(triples, rclass, compounds)
+    createDB(triples, rclass, compounds, graph)
+
     return 0
+
 
 
 def kegg_reactions(filename):
@@ -158,9 +165,7 @@ def find_triples(rclass):
 
 
 # Create and populate a neo4j database
-def createDB(triples, rclass, compounds):
-    authenticate("localhost:7474", "neo4j", "neo4jpw")
-    graph = Graph("localhost:7474/db/data/")
+def createDB(triples, rclass, compounds, graph):
     graph.delete_all()
 
     # iterate over each triple and add to database
