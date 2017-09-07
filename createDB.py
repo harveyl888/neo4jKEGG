@@ -3,6 +3,7 @@
 import re
 from progress.bar import Bar
 from py2neo import authenticate, Graph
+from pandas import DataFrame
 
 
 def main():
@@ -11,10 +12,13 @@ def main():
     graph = Graph("localhost:7474/db/data/")
 
     ## Read in files and create a new database
-    rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
-    compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
-    triples = find_triples(rclass)
-    createDB(triples, rclass, compounds, graph)
+#    rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
+#    compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
+#    triples = find_triples(rclass)
+#    createDB(triples, rclass, compounds, graph)
+
+    ## Test database
+    test_database(graph)
 
     return 0
 
@@ -205,6 +209,27 @@ def createDB(triples, rclass, compounds, graph):
         bar.next()
     bar.finish()
     return
+
+
+# A few tests to make sure we can execute cypher queries
+def test_database(graph):
+
+    tests = []
+    tests.append({"title": "Return first 10 compound IDs", "query": "MATCH (c:Compound) RETURN c.id LIMIT 10", "dataframe": False})
+    tests.append({"title": "Return first 10 relationships", "query": "MATCH p=()-[r:REACTION]->() RETURN p LIMIT 10", "dataframe": False})
+    tests.append({"title": "Using dataframes", "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) RETURN c1.id, r.reaction, c2.id LIMIT 25"
+, "dataframe": True})
+
+    for t in tests:
+        print("\n" + t['title'])
+        print(t['query'])
+        if t['dataframe']:
+            out = DataFrame(graph.data(t['query']))
+        else:
+            out = graph.data(t['query'])
+        print(out)
+    return
+
 
 if __name__ == "__main__":
     main()
