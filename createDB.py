@@ -2,6 +2,8 @@
 
 import re
 from progress.bar import Bar
+from py2neo import authenticate, Graph
+
 
 def main():
     rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
@@ -157,7 +159,6 @@ def find_triples(rclass):
 
 # Create and populate a neo4j database
 def createDB(triples, rclass, compounds):
-    from py2neo import authenticate, Graph
     authenticate("localhost:7474", "neo4j", "neo4jpw")
     graph = Graph("localhost:7474/db/data/")
     graph.delete_all()
