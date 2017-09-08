@@ -120,7 +120,7 @@ def kegg_compounds(filename):
         count1 = count2
         count2 = endList[ref]
         c = compound[count1:count2]
-        tokenList = ["ENTR", "PATH", "EXAC"]
+        tokenList = ["ENTR", "NAME", "FORM", "EXAC", "PATH"]
         tokens = dict()
         for line_i, line in enumerate(c, 1):
             if line[0:4] in tokenList:
@@ -129,6 +129,22 @@ def kegg_compounds(filename):
         if "ENTR" in tokens.keys():
             record = dict()
             record["entry"] = c[tokens["ENTR"]][12:18]
+            ## Name token
+            if "NAME" in tokens.keys():
+                name_text = c[tokens["NAME"]].rstrip()
+                if name_text[len(name_text) - 1] == ";":
+                    record['name'] = name_text[12:len(name_text) - 1]
+                else:
+                    record['name'] = name_text[12:]
+            else:
+                record['name'] = None
+            ## Formula token
+            if "FORM" in tokens.keys():
+                formula_text = c[tokens["FORM"]].rstrip()
+                record['formula'] = formula_text[12:]
+            else:
+                record['formula'] = None
+            ## Exact mass token
             if "EXAC" in tokens.keys():
                 massText = re.search("[0-9.]+", c[tokens["EXAC"]])
                 if (massText):
@@ -137,6 +153,7 @@ def kegg_compounds(filename):
                     record['mass'] = None
             else:
                 record['mass'] = None
+            ## Pathways token
             if "PATH" in tokens.keys():
                 foundEnd = False
                 count = 0
@@ -183,12 +200,12 @@ def createDB(triples, rclass, compounds, graph):
         try:
             c1 = next(item for item in compounds if item['entry'] == t[0])
         except StopIteration:
-            c1 = {'entry': t[0], 'mass': None, 'pathway': []}
+            c1 = {'entry': t[0], 'name': None, 'formula': None, 'mass': None, 'pathway': []}
         # Compound 2
         try:
             c2 = next(item for item in compounds if item['entry'] == t[1])
         except StopIteration:
-            c2 = {'entry': t[1], 'mass': None, 'pathway': []}
+            c2 = {'entry': t[1], 'name': None, 'formula': None, 'mass': None, 'pathway': []}
         c = [c1, c2]
         # Reaction
         try:
@@ -199,6 +216,10 @@ def createDB(triples, rclass, compounds, graph):
         mergeText = ""
         for idx, compound in enumerate(c):
             mergeText += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
+            if compound['name']:
+                mergeText += ", name:\"{name}\"".format(name=compound['name'])
+            if compound['formula']:
+                mergeText += ", formula:\"{formula}\"".format(formula=compound['formula'])
             if compound['mass']:
                 mergeText += ", mass:{mass}".format(mass=compound['mass'])
             if compound['pathway']:
