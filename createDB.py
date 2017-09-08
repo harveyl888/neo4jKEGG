@@ -235,7 +235,8 @@ def create_db(triples, rclass, compounds, graph):
         if r['definition']:
             merge_text += ", definition:{definition}".format(definition=r['definition'])
         if delta_mass:
-            merge_text += ", delta_mass:{delta_mass}".format(delta_mass=delta_mass)
+            merge_text += ", delta_mass:{delta_mass}, abs_delta_mass:{abs_delta_mass}".\
+                format(delta_mass=delta_mass, abs_delta_mass=abs(delta_mass))
         merge_text += "}]->(c2)"
         tx.append(merge_text)
     end_time = time.time()
