@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import re
-from progress.bar import Bar
 from py2neo import authenticate, Graph
 from pandas import DataFrame
 
@@ -15,6 +14,7 @@ def main():
     rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
+
     createDB(triples, rclass, compounds, graph)
 
     ## Test database
@@ -172,8 +172,11 @@ def find_triples(rclass):
 def createDB(triples, rclass, compounds, graph):
     graph.delete_all()
 
+    # begin Cypher transaction
+    tx = graph.begin()
+
     # iterate over each triple and add to database
-    bar = Bar("Processing", max=len(triples))
+    print("Processing", len(triples), "relationships")
     for index, t in enumerate(triples):
         # Lookup each value in triple.  If does not exist then return a record with just the Entry id
         # Compound 1
@@ -205,9 +208,8 @@ def createDB(triples, rclass, compounds, graph):
         if r['definition']:
             mergeText += ", definition:{definition}".format(definition=r['definition'])
         mergeText += "}]->(c2)"
-        graph.run(mergeText)
-        bar.next()
-    bar.finish()
+        tx.append(mergeText)
+    tx.commit()
     return
 
 
