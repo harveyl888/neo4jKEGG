@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import re
+import time
 from py2neo import authenticate, Graph
 from pandas import DataFrame
 
@@ -187,13 +188,13 @@ def find_triples(rclass):
 
 # Create and populate a neo4j database
 def createDB(triples, rclass, compounds, graph):
+    # clear old data
     graph.delete_all()
-
     # begin Cypher transaction
     tx = graph.begin()
-
     # iterate over each triple and add to database
     print("Processing", len(triples), "relationships")
+    start_time = time.time()
     for index, t in enumerate(triples):
         # Lookup each value in triple.  If does not exist then return a record with just the Entry id
         # Compound 1
@@ -212,6 +213,11 @@ def createDB(triples, rclass, compounds, graph):
             r = next((item for item in rclass if item['entry'] == t[2]))
         except StopIteration:
             r = {'entry': t[2], 'definition': [], 'rpairs': [], 'pathway': []}
+        # Delta mass
+        try:
+            deltaMass = round(c2['mass'] - c1['mass'], 4)
+        except Exception:
+            deltaMass = None
 
         mergeText = ""
         for idx, compound in enumerate(c):
@@ -228,9 +234,16 @@ def createDB(triples, rclass, compounds, graph):
         mergeText += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=t[2])
         if r['definition']:
             mergeText += ", definition:{definition}".format(definition=r['definition'])
+        if deltaMass:
+            mergeText += ", delta_mass:{delta_mass}".format(delta_mass=deltaMass)
         mergeText += "}]->(c2)"
         tx.append(mergeText)
+    end_time = time.time()
+    print("Time to create transaction =", int(end_time - start_time), "seconds")
+    start_time = time.time()
     tx.commit()
+    end_time = time.time()
+    print("Time to upload transaction =", int(end_time - start_time), "seconds")
     return
 
 
