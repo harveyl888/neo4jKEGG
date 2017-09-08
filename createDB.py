@@ -12,10 +12,10 @@ def main():
     graph = Graph("localhost:7474/db/data/")
 
     ## Read in files and create a new database
-#    rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
-#    compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
-#    triples = find_triples(rclass)
-#    createDB(triples, rclass, compounds, graph)
+    rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
+    compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
+    triples = find_triples(rclass)
+    createDB(triples, rclass, compounds, graph)
 
     ## Test database
     test_database(graph)
