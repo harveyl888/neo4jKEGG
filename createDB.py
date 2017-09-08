@@ -1,27 +1,27 @@
 #!/usr/bin/python
 
 import re
-from progress.bar import Bar
+import time
 from py2neo import authenticate, Graph
 from pandas import DataFrame
 
 
 def main():
-    ## Connect to neo4j
+    # Connect to neo4j
     authenticate("localhost:7474", "neo4j", "neo4jpw")
     graph = Graph("localhost:7474/db/data/")
 
-    ## Read in files and create a new database
+    # Read in files and create a new database
     rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
-    createDB(triples, rclass, compounds, graph)
 
-    ## Test database
+    create_db(triples, rclass, compounds, graph)
+
+    # Test database
     test_database(graph)
 
     return 0
-
 
 
 def kegg_reactions(filename):
@@ -31,74 +31,75 @@ def kegg_reactions(filename):
     rclass = file.readlines()
 
     # Find end of each record
-    endList = []
+    end_list = []
     for line_i, line in enumerate(rclass, 1):
         if re.match("///", line):
-            endList.append(line_i)
+            end_list.append(line_i)
 
     # Loop through each record extracting tokens
     print("Parsing Reaction Data")
     count2 = 0
-    rclassData = []
-    for ref in range(0, len(endList)-1):
+    rclass_data = []
+    for ref in range(0, len(end_list)-1):
         count1 = count2
-        count2 = endList[ref]
+        count2 = end_list[ref]
         r = rclass[count1:count2]
-        tokenList = ["ENTR", "DEFI", "RPAI", "PATH"]
+        token_list = ["ENTR", "DEFI", "RPAI", "PATH"]
         tokens = dict()
         for line_i, line in enumerate(r, 1):
-            if line[0:4] in tokenList:
+            if line[0:4] in token_list:
                 tokens[line[0:4]] = line_i - 1
         # Parse tokens, extracting information into a dictionary
         if "ENTR" in tokens.keys():
             record = dict()
             record["entry"] = r[tokens["ENTR"]][12:19]
             if "DEFI" in tokens.keys():
-                foundEnd = False
+                found_end = False
                 count = 0
                 v_definition = []
-                while not foundEnd:
-                    currentLine = r[tokens["DEFI"] + count]
-                    if currentLine[0:4] in ["DEFI", "    "]:
-                        v_definition.append(currentLine[12:].rstrip())
+                while not found_end:
+                    current_line = r[tokens["DEFI"] + count]
+                    if current_line[0:4] in ["DEFI", "    "]:
+                        v_definition.append(current_line[12:].rstrip())
                         count += 1
                     else:
-                        foundEnd = True
+                        found_end = True
                 record['definition'] = v_definition
             else:
                 record['definition'] = []
             if "RPAI" in tokens.keys():
-                foundEnd = False
+                found_end = False
                 count = 0
                 v_rpair = []
-                while not foundEnd:
-                    currentLine = r[tokens["RPAI"] + count]
-                    if currentLine[0:4] in ["RPAI", "    "]:
-                        v_rpair.extend(re.findall("([C0-9_]+)", currentLine[12:]))
+                while not found_end:
+                    current_line = r[tokens["RPAI"] + count]
+                    if current_line[0:4] in ["RPAI", "    "]:
+                        v_rpair.extend(re.findall("([C0-9_]+)", current_line[12:]))
                         count += 1
                     else:
-                        foundEnd = True
+                        found_end = True
                 record['rpairs'] = v_rpair
             else:
                 record['rpairs'] = []
             if "PATH" in tokens.keys():
-                foundEnd = False
+                found_end = False
                 count = 0
                 v_pathway = []
-                while not foundEnd:
-                    currentLine = r[tokens["PATH"] + count]
-                    if currentLine[0:4] in ["PATH", "    "]:
-                        v_pathway.append(currentLine[12:20])
+                while not found_end:
+                    current_line = r[tokens["PATH"] + count]
+                    if current_line[0:4] in ["PATH", "    "]:
+                        v_pathway.append(current_line[12:20])
                         count += 1
                     else:
-                        foundEnd = True
+                        found_end = True
                 record['pathway'] = v_pathway
             else:
                 record['pathway'] = []
             # Add record to list
-            rclassData.append(record)
-    print(len(rclassData), "reaction records created\n")
-    return rclassData
+            rclass_data.append(record)
+    print(len(rclass_data), "reaction records created\n")
+    return rclass_data
+
 
 def kegg_compounds(filename):
     # Read in compound file
@@ -107,55 +108,72 @@ def kegg_compounds(filename):
     compound = file.readlines()
 
     # Find end of each record
-    endList = []
+    end_list = []
     for line_i, line in enumerate(compound, 1):
         if re.match("///", line):
-            endList.append(line_i)
+            end_list.append(line_i)
 
     # Loop through each record extracting tokens
     print("Parsing Compound Data")
     count2 = 0
-    compoundData = []
-    for ref in range(0, len(endList)-1):
+    compound_data = []
+    for ref in range(0, len(end_list)-1):
         count1 = count2
-        count2 = endList[ref]
+        count2 = end_list[ref]
         c = compound[count1:count2]
-        tokenList = ["ENTR", "PATH", "EXAC"]
+        token_list = ["ENTR", "NAME", "FORM", "EXAC", "PATH"]
         tokens = dict()
         for line_i, line in enumerate(c, 1):
-            if line[0:4] in tokenList:
+            if line[0:4] in token_list:
                 tokens[line[0:4]] = line_i - 1
         # Parse tokens, extracting information into a dictionary
         if "ENTR" in tokens.keys():
             record = dict()
             record["entry"] = c[tokens["ENTR"]][12:18]
+            # Name token
+            if "NAME" in tokens.keys():
+                name_text = c[tokens["NAME"]].rstrip()
+                if name_text[len(name_text) - 1] == ";":
+                    record['name'] = name_text[12:len(name_text) - 1]
+                else:
+                    record['name'] = name_text[12:]
+            else:
+                record['name'] = None
+            # Formula token
+            if "FORM" in tokens.keys():
+                formula_text = c[tokens["FORM"]].rstrip()
+                record['formula'] = formula_text[12:]
+            else:
+                record['formula'] = None
+            # Exact mass token
             if "EXAC" in tokens.keys():
-                massText = re.search("[0-9.]+", c[tokens["EXAC"]])
-                if (massText):
-                    record['mass'] = float(massText.group(0))
+                mass_text = re.search("[0-9.]+", c[tokens["EXAC"]])
+                if mass_text:
+                    record['mass'] = float(mass_text.group(0))
                 else:
                     record['mass'] = None
             else:
                 record['mass'] = None
+            # Pathways token
             if "PATH" in tokens.keys():
-                foundEnd = False
+                found_end = False
                 count = 0
                 v_pathway = []
-                while not foundEnd:
-                    currentLine = c[tokens["PATH"] + count]
-                    if currentLine[0:4] in ["PATH", "    "]:
-                        v_pathway.append(currentLine[12:20])
+                while not found_end:
+                    current_line = c[tokens["PATH"] + count]
+                    if current_line[0:4] in ["PATH", "    "]:
+                        v_pathway.append(current_line[12:20])
                         count += 1
                     else:
-                        foundEnd = True
+                        found_end = True
                 record['pathway'] = v_pathway
             else:
                 record['pathway'] = []
 
             # Add record to list
-            compoundData.append(record)
-    print(len(compoundData), "compound records created\n")
-    return compoundData
+            compound_data.append(record)
+    print(len(compound_data), "compound records created\n")
+    return compound_data
 
 
 def find_triples(rclass):
@@ -169,56 +187,85 @@ def find_triples(rclass):
 
 
 # Create and populate a neo4j database
-def createDB(triples, rclass, compounds, graph):
+def create_db(triples, rclass, compounds, graph):
+    # clear old data
     graph.delete_all()
-
+    # begin Cypher transaction
+    tx = graph.begin()
     # iterate over each triple and add to database
-    bar = Bar("Processing", max=len(triples))
+    print("Processing", len(triples), "relationships")
+    start_time = time.time()
     for index, t in enumerate(triples):
         # Lookup each value in triple.  If does not exist then return a record with just the Entry id
         # Compound 1
         try:
             c1 = next(item for item in compounds if item['entry'] == t[0])
         except StopIteration:
-            c1 = {'entry': t[0], 'mass': None, 'pathway': []}
+            c1 = {'entry': t[0], 'name': None, 'formula': None, 'mass': None, 'pathway': []}
         # Compound 2
         try:
             c2 = next(item for item in compounds if item['entry'] == t[1])
         except StopIteration:
-            c2 = {'entry': t[1], 'mass': None, 'pathway': []}
+            c2 = {'entry': t[1], 'name': None, 'formula': None, 'mass': None, 'pathway': []}
         c = [c1, c2]
         # Reaction
         try:
             r = next((item for item in rclass if item['entry'] == t[2]))
         except StopIteration:
             r = {'entry': t[2], 'definition': [], 'rpairs': [], 'pathway': []}
+        # Delta mass
+        try:
+            delta_mass = round(c2['mass'] - c1['mass'], 4)
+        except TypeError:
+            delta_mass = None
 
-        mergeText = ""
+        merge_text = ""
         for idx, compound in enumerate(c):
-            mergeText += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
+            merge_text += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
+            if compound['name']:
+                merge_text += ", name:\"{name}\"".format(name=compound['name'])
+            if compound['formula']:
+                merge_text += ", formula:\"{formula}\"".format(formula=compound['formula'])
             if compound['mass']:
-                mergeText += ", mass:{mass}".format(mass=compound['mass'])
+                merge_text += ", mass:{mass}".format(mass=compound['mass'])
             if compound['pathway']:
-                mergeText += ", pathways:{pathway}".format(pathway=compound['pathway'])
-            mergeText += "}) "
-        mergeText += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=t[2])
+                merge_text += ", pathways:{pathway}".format(pathway=compound['pathway'])
+            merge_text += "}) "
+        merge_text += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=t[2])
         if r['definition']:
-            mergeText += ", definition:{definition}".format(definition=r['definition'])
-        mergeText += "}]->(c2)"
-        graph.run(mergeText)
-        bar.next()
-    bar.finish()
+            merge_text += ", definition:{definition}".format(definition=r['definition'])
+        if delta_mass:
+            merge_text += ", delta_mass:{delta_mass}, abs_delta_mass:{abs_delta_mass}".\
+                format(delta_mass=delta_mass, abs_delta_mass=abs(delta_mass))
+        merge_text += "}]->(c2)"
+        tx.append(merge_text)
+    end_time = time.time()
+    print("Time to create transaction =", int(end_time - start_time), "seconds")
+    start_time = time.time()
+    tx.commit()
+    end_time = time.time()
+    print("Time to upload transaction =", int(end_time - start_time), "seconds")
     return
 
 
 # A few tests to make sure we can execute cypher queries
 def test_database(graph):
 
-    tests = []
-    tests.append({"title": "Return first 10 compound IDs", "query": "MATCH (c:Compound) RETURN c.id LIMIT 10", "dataframe": False})
-    tests.append({"title": "Return first 10 relationships", "query": "MATCH p=()-[r:REACTION]->() RETURN p LIMIT 10", "dataframe": False})
-    tests.append({"title": "Using dataframes", "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) RETURN c1.id, r.reaction, c2.id LIMIT 25"
-, "dataframe": True})
+    tests = list()
+    tests.append({"title": "Return first 10 compound IDs",
+                  "query": "MATCH (c:Compound) RETURN c.id LIMIT 10", "dataframe": False})
+    tests.append({"title": "Return first 10 relationships",
+                  "query": "MATCH p=()-[r:REACTION]->() RETURN p LIMIT 10", "dataframe": False})
+    tests.append({"title": "Using dataframes",
+                  "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) RETURN c1.id, r.reaction, c2.id LIMIT 25",
+                  "dataframe": True})
+    ppm_limit = 100
+    mass_search = 18.0105
+    tests.append({"title": "Search for mass match - dehydration reactions",
+                  "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) WHERE "
+                           "1E6*abs({mass_search} - r.abs_delta_mass)/{mass_search} < {ppm_limit} RETURN "
+                           "c1.id, r.reaction, c2.id LIMIT 25".format(mass_search=mass_search, ppm_limit=ppm_limit),
+                  "dataframe": True})
 
     for t in tests:
         print("\n" + t['title'])
@@ -233,5 +280,3 @@ def test_database(graph):
 
 if __name__ == "__main__":
     main()
-
-
