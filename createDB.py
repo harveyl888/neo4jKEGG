@@ -12,7 +12,7 @@ def main():
     graph = Graph("localhost:7474/db/data/")
 
     # Read in files and create a new database
-    rclass = kegg_reactions("C:/Databases/KEGG/rclass/rclass")
+    rclass = kegg_rclass("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
 
@@ -25,9 +25,69 @@ def main():
 
 
 def kegg_reactions(filename):
-    # Read in rclass file
+    # Read in reactions file
     file = open(filename, "r")
     print("Reading Reaction File")
+    reactions = file.readlines()
+
+    # Find end of each record
+    end_list = []
+    for line_i, line in enumerate(reactions, 1):
+        if re.match("///", line):
+            end_list.append(line_i)
+
+    # Loop through each record extracting tokens
+    print("Parsing Reaction Class Data")
+    count2 = 0
+    reaction_data = []
+    for ref in range(0, len(end_list)-1):
+        count1 = count2
+        count2 = end_list[ref]
+        r = reactions[count1:count2]
+        token_list = ["ENTR", "NAME", "DEFI", "EQUA", "RCLA", "ENZY"]
+        tokens = dict()
+
+        for line_i, line in enumerate(r, 1):
+            if line[0:4] in token_list:
+                tokens[line[0:4]] = line_i - 1
+        # Parse tokens, extracting information into a dictionary
+        if "ENTR" in tokens.keys() and "RCLA" in tokens.keys():
+            record = dict()
+            record["entry"] = r[tokens["ENTR"]][12:18]
+            record["rclass"] = r[tokens["RCLA"]][12:19]
+            rpair = r[tokens["RCLA"]][20:].strip().split("_")
+            record["substrate"] = rpair[0]
+            record["product"] = rpair[1]
+            # Name token
+            if "NAME" in tokens.keys():
+                record['name'] = r[tokens["NAME"]][12:].strip()
+            else:
+                record['name'] = None
+            # Definition token
+            if "DEFI" in tokens.keys():
+                record['definition'] = r[tokens["DEFI"]][12:].strip()
+            else:
+                record['definition'] = None
+            # Equation token
+            if "EQUA" in tokens.keys():
+                record['equation'] = r[tokens["EQUA"]][12:].strip()
+            else:
+                record['equation'] = None
+            # Enzyme token
+            if "ENZY" in tokens.keys():
+                record['enzyme'] = r[tokens["ENZY"]][12:].strip()
+            else:
+                record['enzyme'] = None
+            # Add record to list
+            reaction_data.append(record)
+    print(len(reaction_data), "reaction records created\n")
+    return reaction_data
+
+
+def kegg_rclass(filename):
+    # Read in rclass file
+    file = open(filename, "r")
+    print("Reading Reaction Class File")
     rclass = file.readlines()
 
     # Find end of each record
@@ -37,7 +97,7 @@ def kegg_reactions(filename):
             end_list.append(line_i)
 
     # Loop through each record extracting tokens
-    print("Parsing Reaction Data")
+    print("Parsing Reaction Class Data")
     count2 = 0
     rclass_data = []
     for ref in range(0, len(end_list)-1):
@@ -97,7 +157,7 @@ def kegg_reactions(filename):
                 record['pathway'] = []
             # Add record to list
             rclass_data.append(record)
-    print(len(rclass_data), "reaction records created\n")
+    print(len(rclass_data), "reaction class records created\n")
     return rclass_data
 
 
