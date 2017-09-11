@@ -12,6 +12,8 @@ def main():
     graph = Graph("localhost:7474/db/data/")
 
     # Read in files and create a new database
+    reactions = kegg_reactions("C:/Databases/KEGG/reaction/reaction")
+    enzymes = kegg_enzymes("C:/Databases/KEGG/enzyme/enzyme")
     rclass = kegg_rclass("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
