@@ -84,6 +84,70 @@ def kegg_reactions(filename):
     return reaction_data
 
 
+def kegg_enzymes(filename):
+    # Read in enzyme file
+    file = open(filename, "r")
+    print("Reading Enzyme File")
+    enzymes = file.readlines()
+
+    # Find end of each record
+    end_list = []
+    for line_i, line in enumerate(enzymes, 1):
+        if re.match("///", line):
+            end_list.append(line_i)
+
+    # Loop through each record extracting tokens
+    print("Parsing Enzyme Data")
+    count2 = 0
+    enzyme_data = []
+    for ref in range(0, len(end_list)-1):
+        count1 = count2
+        count2 = end_list[ref]
+        e = enzymes[count1:count2]
+        token_list = ["ENTR", "NAME", "PATH"]
+        tokens = dict()
+
+        for line_i, line in enumerate(e, 1):
+            if line[0:4] in token_list:
+                tokens[line[0:4]] = line_i - 1
+        # Parse tokens, extracting information into a dictionary
+        if "ENTR" in tokens.keys():
+            record = dict()
+            entry_id = re.search("EC \d+.\d+.\d+.\d+", e[tokens["ENTR"]])
+            if entry_id:
+                record["entry"] = entry_id.group()
+            else:
+                break
+            # Name token
+            if "NAME" in tokens.keys():
+                name_text = e[tokens["NAME"]].rstrip()
+                if name_text[len(name_text) - 1] == ";":
+                    record['name'] = name_text[12:len(name_text) - 1]
+                else:
+                    record['name'] = name_text[12:]
+            else:
+                record['name'] = None
+            # Pathway token
+            if "PATH" in tokens.keys():
+                found_end = False
+                count = 0
+                v_pathway = []
+                while not found_end:
+                    current_line = e[tokens["PATH"] + count]
+                    if current_line[0:4] in ["PATH", "    "]:
+                        v_pathway.append(current_line[12:19])
+                        count += 1
+                    else:
+                        found_end = True
+                record['pathway'] = v_pathway
+            else:
+                record['pathway'] = []
+            # Add record to list
+            enzyme_data.append(record)
+    print(len(enzyme_data), "enzyme records created\n")
+    return enzyme_data
+
+
 def kegg_rclass(filename):
     # Read in rclass file
     file = open(filename, "r")
