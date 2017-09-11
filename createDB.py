@@ -55,11 +55,20 @@ def kegg_reactions(filename):
         # Parse tokens, extracting information into a dictionary
         if "ENTR" in tokens.keys() and "RCLA" in tokens.keys():
             record = dict()
+            # Entry token
             record["entry"] = r[tokens["ENTR"]][12:18]
-            record["rclass"] = r[tokens["RCLA"]][12:19]
-            rpair = r[tokens["RCLA"]][20:].strip().split("_")
-            record["substrate"] = rpair[0]
-            record["product"] = rpair[1]
+            # RClass token
+            found_end = False
+            count = 0
+            v_rclass = []
+            while not found_end:
+                current_line = r[tokens["RCLA"] + count]
+                if current_line[0:4] in ["RCLA", "    "]:
+                    v_rclass.append(re.findall("([RC0-9]+)", current_line[12:]))
+                    count += 1
+                else:
+                    found_end = True
+                record['rclass'] = v_rclass
             # Name token
             if "NAME" in tokens.keys():
                 record['name'] = r[tokens["NAME"]][12:].strip()
