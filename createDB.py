@@ -2,6 +2,7 @@
 
 import re
 import time
+import xml.etree.ElementTree as ET
 from py2neo import authenticate, Graph
 from pandas import DataFrame
 
@@ -10,6 +11,8 @@ def main():
     # Connect to neo4j
     authenticate("localhost:7474", "neo4j", "neo4jpw")
     graph = Graph("localhost:7474/db/data/")
+
+    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko/ko01100.xml")
 
     # Read in files and create a new database
     reactions = kegg_reactions("C:/Databases/KEGG/reaction/reaction")
@@ -24,6 +27,26 @@ def main():
     test_database(graph)
 
     return 0
+
+
+def read_kegg_xml(filename):
+    # Read in and parse xml file
+    tree = ET.parse(filename).getroot()
+    reactions_xml = tree.findall("reaction")
+
+    reactions = list()
+    for r in reactions_xml:
+        reaction = dict()
+        reaction['id'] = r.attrib['id']
+        reaction['name'] = [x[3:] for x in r.attrib['name'].split(" ")]
+        reaction['type'] = r.attrib['type']
+        for child in r:
+            cpd = dict()
+            cpd['id'] = child.attrib['id']
+            cpd['name'] = child.attrib['name'][4:]
+            reaction[child.tag] = cpd
+        reactions.append(reaction)
+    return reactions
 
 
 def kegg_reactions(filename):
