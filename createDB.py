@@ -31,6 +31,31 @@ def main():
     return 0
 
 
+def read_pathway_list(filename):
+    # Read in pathway list and return a hierarchy
+    pathways = list()
+    level_1 = list()
+    level_2 = list()
+    level_2_heading = ""
+    with open(filename) as f:
+        for line in f:
+            if line[0:1] == "#":                # Heading
+                if line[0:2] == "##":            # Subheading
+                    if len(level_2) > 0:
+                        level_1.append({'name': level_2_heading, 'pathways': level_2})
+                    level_2_heading = line[2:].strip()
+                    level_2 = list()
+                else:                           # Main heading
+                    if len(level_1) > 0:
+                        level_1.append({'name': level_2_heading, 'pathways': level_2})
+                        pathways.append({'name': level_1_heading, 'maps': level_1})
+                    level_1_heading = line[1:].strip()
+                    level_1 = list()
+            else:                               # Pathway
+                level_2.append({"id": line[0:5], "name": line[6:].strip()})
+    return pathways
+
+
 def read_kegg_xml(folder, use_pathways=None, ignore_pathways=None):
     # Read in and parse xml files
     xml_files = glob.glob(folder + '/*.xml')
