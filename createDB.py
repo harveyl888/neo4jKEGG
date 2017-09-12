@@ -13,6 +13,9 @@ def main():
     authenticate("localhost:7474", "neo4j", "neo4jpw")
     graph = Graph("localhost:7474/db/data/")
 
+    pathway_list = read_pathway_list("C:/Databases/KEGG/pathway.list")
+
+
 #    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko/ko00010.xml")
     metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko")
 
@@ -53,6 +56,7 @@ def read_pathway_list(filename):
                     level_1 = list()
             else:                               # Pathway
                 level_2.append({"id": line[0:5], "name": line[6:].strip()})
+    f.close()
     return pathways
 
 
@@ -97,6 +101,7 @@ def kegg_reactions(filename):
     file = open(filename, "r")
     print("Reading Reaction File")
     reactions = file.readlines()
+    file.close()
 
     # Find end of each record
     end_list = []
@@ -166,6 +171,7 @@ def kegg_enzymes(filename):
     file = open(filename, "r")
     print("Reading Enzyme File")
     enzymes = file.readlines()
+    file.close()
 
     # Find end of each record
     end_list = []
@@ -230,6 +236,7 @@ def kegg_rclass(filename):
     file = open(filename, "r")
     print("Reading Reaction Class File")
     rclass = file.readlines()
+    file.close()
 
     # Find end of each record
     end_list = []
@@ -307,6 +314,7 @@ def kegg_compounds(filename):
     file = open(filename, "r")
     print("Reading Compound File")
     compound = file.readlines()
+    file.close()
 
     # Find end of each record
     end_list = []
