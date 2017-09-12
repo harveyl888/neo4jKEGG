@@ -136,23 +136,15 @@ def kegg_reactions(filename):
             # Name token
             if "NAME" in tokens.keys():
                 record['name'] = r[tokens["NAME"]][12:].strip()
-            else:
-                record['name'] = None
             # Definition token
             if "DEFI" in tokens.keys():
                 record['definition'] = r[tokens["DEFI"]][12:].strip()
-            else:
-                record['definition'] = None
             # Equation token
             if "EQUA" in tokens.keys():
                 record['equation'] = r[tokens["EQUA"]][12:].strip()
-            else:
-                record['equation'] = None
             # Enzyme token
             if "ENZY" in tokens.keys():
                 record['enzyme'] = r[tokens["ENZY"]][12:].strip()
-            else:
-                record['enzyme'] = None
             # Add record to list
             reaction_data[record['entry']] = record
     print(len(reaction_data), "reaction records created\n")
@@ -201,8 +193,6 @@ def kegg_enzymes(filename):
                     record['name'] = name_text[12:len(name_text) - 1]
                 else:
                     record['name'] = name_text[12:]
-            else:
-                record['name'] = None
             # Pathway token
             if "PATH" in tokens.keys():
                 found_end = False
@@ -216,8 +206,6 @@ def kegg_enzymes(filename):
                     else:
                         found_end = True
                 record['pathway'] = v_pathway
-            else:
-                record['pathway'] = []
             # Add record to list
             enzyme_data[record['entry']] = record
     print(len(enzyme_data), "enzyme records created\n")
@@ -266,8 +254,6 @@ def kegg_rclass(filename):
                     else:
                         found_end = True
                 record['definition'] = v_definition
-            else:
-                record['definition'] = []
             if "RPAI" in tokens.keys():
                 found_end = False
                 count = 0
@@ -280,8 +266,6 @@ def kegg_rclass(filename):
                     else:
                         found_end = True
                 record['rpairs'] = v_rpair
-            else:
-                record['rpairs'] = []
             if "PATH" in tokens.keys():
                 found_end = False
                 count = 0
@@ -294,8 +278,6 @@ def kegg_rclass(filename):
                     else:
                         found_end = True
                 record['pathway'] = v_pathway
-            else:
-                record['pathway'] = []
             # Add record to list
             rclass_data[record['entry']] = record
     print(len(rclass_data), "reaction class records created\n")
@@ -339,23 +321,15 @@ def kegg_compounds(filename):
                     record['name'] = name_text[12:len(name_text) - 1]
                 else:
                     record['name'] = name_text[12:]
-#            else:
-#                record['name'] = None
             # Formula token
             if "FORM" in tokens.keys():
                 formula_text = c[tokens["FORM"]].rstrip()
                 record['formula'] = formula_text[12:]
-#            else:
-#                record['formula'] = None
             # Exact mass token
             if "EXAC" in tokens.keys():
                 mass_text = re.search("[0-9.]+", c[tokens["EXAC"]])
                 if mass_text:
                     record['mass'] = float(mass_text.group(0))
-#                else:
-#                    record['mass'] = None
-#            else:
-#                record['mass'] = None
             # Pathways token
             if "PATH" in tokens.keys():
                 found_end = False
@@ -369,8 +343,6 @@ def kegg_compounds(filename):
                     else:
                         found_end = True
                 record['pathway'] = v_pathway
-#            else:
-#                record['pathway'] = []
 
             # Add record to list
             compound_data[record['entry']] = record
