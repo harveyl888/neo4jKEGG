@@ -372,9 +372,6 @@ def flatten_dict(d):
 
 # Create and populate a neo4j database
 def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=None, compounds=None):
-
-    metabolic_reactions = metabolic_reactions[0:100]
-
     # clear old data
     graph.delete_all()
     # begin Cypher transaction
@@ -384,20 +381,52 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
     print("Processing", len(metabolic_reactions), "reactions")
     start_time = time.time()
     for index, m in enumerate(metabolic_reactions):
+        # Compound 1
         if m["substrate"]["name"] in compounds.keys():
             cpd1 = "MERGE (c1:Compound {{{id}}})".format(id=flatten_dict(compounds[m["substrate"]["name"]]))
         else:
             cpd1 = "MERGE (c1:Compound {{entry: \"{id}\"}})".format(id=m["substrate"]["name"])
+        # Compound 2
         if m["product"]["name"] in compounds.keys():
             cpd2 = "MERGE (c2:Compound {{{id}}})".format(id=flatten_dict(compounds[m["product"]["name"]]))
         else:
             cpd2 = "MERGE (c2:Compound {{entry: \"{id}\"}})".format(id=m["product"]["name"])
+        # Reaction
         if m["type"] == "reversible":
             relation = "-"
         else:
             relation = "->"
-        merge_text = "{cpd1} {cpd2} MERGE (c1)-[:REACTION]{relation}(c2)".format(cpd1=cpd1, relation=relation, cpd2=cpd2)
-        tx.append(merge_text)
+        react_data = dict()
+        react_data["type"] = m["type"]
+
+        # loop through reactions
+        for react_name in m["name"]:
+            react_data["entry"] = react_name
+            if react_name in reactions.keys():
+                if "definition" in reactions[react_name]:
+                    react_data["definition"] = reactions[react_name]["definition"]
+                if "equation" in reactions[react_name]:
+                    react_data["equation"] = reactions[react_name]["equation"]
+                if "name" in reactions[react_name]:
+                    react_data["reaction_name"] = reactions[react_name]["name"]
+    #            if "rclass" in reactions[react_name]:
+    #                react_data["reaction_class"] = reactions[react_name]["rclass"]
+                if "enzyme" in reactions[react_name]:
+                    enz = reactions[react_name]["enzyme"]
+                    react_data["enzyme"] = enz
+                    if enz in enzymes.keys():
+                        if "name" in enzymes[enz]:
+                            react_data["enzyme_name"] = enzymes[enz]["name"]
+                        if "pathway" in enzymes[enz]:
+                            react_data["pathway"] = enzymes[enz]["pathway"]
+            # generate MERGE for cypher transaction
+            react = "[:REACTION {{{r}}}]".format(r=flatten_dict(react_data))
+            merge_text = "{cpd1} {cpd2} MERGE (c1)-{react}{relation}(c2)"\
+                .format(cpd1=cpd1, react=react, relation=relation, cpd2=cpd2)
+
+    #        print("{i}    {m}".format(i=index, m=react))
+
+            tx.append(merge_text)
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
     start_time = time.time()
