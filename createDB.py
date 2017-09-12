@@ -64,7 +64,7 @@ def kegg_reactions(filename):
     # Loop through each record extracting tokens
     print("Parsing Reaction Class Data")
     count2 = 0
-    reaction_data = []
+    reaction_data = dict()
     for ref in range(0, len(end_list)-1):
         count1 = count2
         count2 = end_list[ref]
@@ -113,7 +113,7 @@ def kegg_reactions(filename):
             else:
                 record['enzyme'] = None
             # Add record to list
-            reaction_data.append(record)
+            reaction_data[record['entry']] = record
     print(len(reaction_data), "reaction records created\n")
     return reaction_data
 
@@ -133,7 +133,7 @@ def kegg_enzymes(filename):
     # Loop through each record extracting tokens
     print("Parsing Enzyme Data")
     count2 = 0
-    enzyme_data = []
+    enzyme_data = dict()
     for ref in range(0, len(end_list)-1):
         count1 = count2
         count2 = end_list[ref]
@@ -177,7 +177,7 @@ def kegg_enzymes(filename):
             else:
                 record['pathway'] = []
             # Add record to list
-            enzyme_data.append(record)
+            enzyme_data[record['entry']] = record
     print(len(enzyme_data), "enzyme records created\n")
     return enzyme_data
 
@@ -197,7 +197,7 @@ def kegg_rclass(filename):
     # Loop through each record extracting tokens
     print("Parsing Reaction Class Data")
     count2 = 0
-    rclass_data = []
+    rclass_data = dict()
     for ref in range(0, len(end_list)-1):
         count1 = count2
         count2 = end_list[ref]
@@ -254,7 +254,7 @@ def kegg_rclass(filename):
             else:
                 record['pathway'] = []
             # Add record to list
-            rclass_data.append(record)
+            rclass_data[record['entry']] = record
     print(len(rclass_data), "reaction class records created\n")
     return rclass_data
 
@@ -274,7 +274,7 @@ def kegg_compounds(filename):
     # Loop through each record extracting tokens
     print("Parsing Compound Data")
     count2 = 0
-    compound_data = []
+    compound_data = dict()
     for ref in range(0, len(end_list)-1):
         count1 = count2
         count2 = end_list[ref]
@@ -329,7 +329,7 @@ def kegg_compounds(filename):
                 record['pathway'] = []
 
             # Add record to list
-            compound_data.append(record)
+            compound_data[record['entry']] = record
     print(len(compound_data), "compound records created\n")
     return compound_data
 
