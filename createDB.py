@@ -409,8 +409,8 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
                     react_data["equation"] = reactions[react_name]["equation"]
                 if "name" in reactions[react_name]:
                     react_data["reaction_name"] = reactions[react_name]["name"]
-    #            if "rclass" in reactions[react_name]:
-    #                react_data["reaction_class"] = reactions[react_name]["rclass"]
+                if "rclass" in reactions[react_name]:
+                    react_data["reaction_class"] = [x[0] for x in reactions[react_name]["rclass"]]
                 if "enzyme" in reactions[react_name]:
                     enz = reactions[react_name]["enzyme"]
                     react_data["enzyme"] = enz
