@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import re
+import glob
 import time
 import xml.etree.ElementTree as ET
 from py2neo import authenticate, Graph
@@ -12,7 +13,8 @@ def main():
     authenticate("localhost:7474", "neo4j", "neo4jpw")
     graph = Graph("localhost:7474/db/data/")
 
-    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko/ko01100.xml")
+#    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko/ko00010.xml")
+    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko")
 
     # Read in files and create a new database
     reactions = kegg_reactions("C:/Databases/KEGG/reaction/reaction")
@@ -29,23 +31,39 @@ def main():
     return 0
 
 
-def read_kegg_xml(filename):
-    # Read in and parse xml file
-    tree = ET.parse(filename).getroot()
-    reactions_xml = tree.findall("reaction")
+def read_kegg_xml(folder, use_pathways=None, ignore_pathways=None):
+    # Read in and parse xml files
+    xml_files = glob.glob(folder + '/*.xml')
+    if type(use_pathways) == list:
+        r = re.compile("|".join(use_pathways))
+        l_keepme = map(lambda x: len(r.findall(x)) > 0, xml_files)
+        keep_me = [i for i, x in enumerate(list(l_keepme)) if x]
+        xml_files = [xml_files[i] for i in keep_me]
+    elif type(ignore_pathways) == list:
+        r = re.compile("|".join(ignore_pathways))
+        l_keepme = map(lambda x: len(r.findall(x)) > 0, xml_files)
+        keep_me = [i for i, x in enumerate(list(l_keepme)) if not x]
+        xml_files = [xml_files[i] for i in keep_me]
 
     reactions = list()
-    for r in reactions_xml:
-        reaction = dict()
-        reaction['id'] = r.attrib['id']
-        reaction['name'] = [x[3:] for x in r.attrib['name'].split(" ")]
-        reaction['type'] = r.attrib['type']
-        for child in r:
-            cpd = dict()
-            cpd['id'] = child.attrib['id']
-            cpd['name'] = child.attrib['name'][4:]
-            reaction[child.tag] = cpd
-        reactions.append(reaction)
+    for filename in xml_files:
+        tree = ET.parse(filename).getroot()
+        pathway_number = tree.attrib['number']
+        pathway_name = tree.attrib['title']
+        reactions_xml = tree.findall("reaction")
+        for r in reactions_xml:
+            reaction = dict()
+            reaction['id'] = r.attrib['id']
+            reaction['name'] = [x[3:] for x in r.attrib['name'].split(" ")]
+            reaction['type'] = r.attrib['type']
+            reaction['pathway_id'] = pathway_number
+            reaction['pathway_name'] = pathway_name
+            for child in r:
+                cpd = dict()
+                cpd['id'] = child.attrib['id']
+                cpd['name'] = child.attrib['name'][4:]
+                reaction[child.tag] = cpd
+            reactions.append(reaction)
     return reactions
 
 
@@ -342,6 +360,35 @@ def find_triples(rclass):
             rpair_triple.append(r["entry"])
             triples.append(rpair_triple)
     return triples
+
+
+# Create and populate a neo4j database
+def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=None, compounds=None):
+    # clear old data
+    graph.delete_all()
+    # begin Cypher transaction
+    tx = graph.begin()
+    # iterate over each member of metabolic_reactions and add to database
+    # include optional data as properties if available
+    print("Processing", len(metabolic_reactions), "reactions")
+    start_time = time.time()
+    for index,m in enumerate(metabolic_reactions):
+        cpd1 = "MERGE (c1:Compound {{id: \"{id}\"}})".format(id=m["substrate"]["name"])
+        cpd2 = "MERGE (c2:Compound {{id: \"{id}\"}})".format(id=m["product"]["name"])
+        if m["type"] == "reversible":
+            relation = "-"
+        else:
+            relation = "->"
+        merge_text = "{cpd1} {cpd2} MERGE (c1)-[:REACTION]{relation}(c2)".format(cpd1=cpd1,relation=relation,cpd2=cpd2)
+        print(index, "    ", merge_text)
+        tx.append(merge_text)
+    end_time = time.time()
+    print("Time to create transaction =", int(end_time - start_time), "seconds")
+    start_time = time.time()
+    tx.commit()
+    end_time = time.time()
+    print("Time to upload transaction =", int(end_time - start_time), "seconds")
+    return
 
 
 # Create and populate a neo4j database
