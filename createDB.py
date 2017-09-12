@@ -14,10 +14,11 @@ def main():
     graph = Graph("localhost:7474/db/data/")
 
     pathway_list = read_pathway_list("C:/Databases/KEGG/pathway.list")
+    main_pathway = "Metabolism"
+    use_pathways = [i[2] for i in pathway_list if i[0] in main_pathway]
+    use_pathways.remove('01100')
 
-
-#    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko/ko00010.xml")
-    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko")
+    metabolic_reactions = read_kegg_xml("C:/Databases/KEGG/kgml/ko", use_pathways=use_pathways)
 
     # Read in files and create a new database
     reactions = kegg_reactions("C:/Databases/KEGG/reaction/reaction")
@@ -37,25 +38,17 @@ def main():
 def read_pathway_list(filename):
     # Read in pathway list and return a hierarchy
     pathways = list()
-    level_1 = list()
-    level_2 = list()
+    level_1_heading = ""
     level_2_heading = ""
     with open(filename) as f:
         for line in f:
-            if line[0:1] == "#":                # Heading
-                if line[0:2] == "##":            # Subheading
-                    if len(level_2) > 0:
-                        level_1.append({'name': level_2_heading, 'pathways': level_2})
+            if line[0:1] == "#":
+                if line[0:2] == "##":
                     level_2_heading = line[2:].strip()
-                    level_2 = list()
-                else:                           # Main heading
-                    if len(level_1) > 0:
-                        level_1.append({'name': level_2_heading, 'pathways': level_2})
-                        pathways.append({'name': level_1_heading, 'maps': level_1})
+                else:
                     level_1_heading = line[1:].strip()
-                    level_1 = list()
-            else:                               # Pathway
-                level_2.append({"id": line[0:5], "name": line[6:].strip()})
+            else:
+                pathways.append([level_1_heading, level_2_heading, line[0:5], line[6:].strip()])
     f.close()
     return pathways
 
