@@ -339,23 +339,23 @@ def kegg_compounds(filename):
                     record['name'] = name_text[12:len(name_text) - 1]
                 else:
                     record['name'] = name_text[12:]
-            else:
-                record['name'] = None
+#            else:
+#                record['name'] = None
             # Formula token
             if "FORM" in tokens.keys():
                 formula_text = c[tokens["FORM"]].rstrip()
                 record['formula'] = formula_text[12:]
-            else:
-                record['formula'] = None
+#            else:
+#                record['formula'] = None
             # Exact mass token
             if "EXAC" in tokens.keys():
                 mass_text = re.search("[0-9.]+", c[tokens["EXAC"]])
                 if mass_text:
                     record['mass'] = float(mass_text.group(0))
-                else:
-                    record['mass'] = None
-            else:
-                record['mass'] = None
+#                else:
+#                    record['mass'] = None
+#            else:
+#                record['mass'] = None
             # Pathways token
             if "PATH" in tokens.keys():
                 found_end = False
@@ -369,8 +369,8 @@ def kegg_compounds(filename):
                     else:
                         found_end = True
                 record['pathway'] = v_pathway
-            else:
-                record['pathway'] = []
+#            else:
+#                record['pathway'] = []
 
             # Add record to list
             compound_data[record['entry']] = record
@@ -388,8 +388,21 @@ def find_triples(rclass):
     return triples
 
 
+def flatten_dict(d):
+    out = list()
+    for k, v in d.items():
+        if type(v) is str:
+            out.append("{k}: \"{v}\"".format(k=k, v=v))
+        else:
+            out.append("{k}: {v}".format(k=k, v=v))
+    return ", ".join(out)
+
+
 # Create and populate a neo4j database
 def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=None, compounds=None):
+
+    metabolic_reactions = metabolic_reactions[0:100]
+
     # clear old data
     graph.delete_all()
     # begin Cypher transaction
@@ -398,15 +411,20 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
     # include optional data as properties if available
     print("Processing", len(metabolic_reactions), "reactions")
     start_time = time.time()
-    for index,m in enumerate(metabolic_reactions):
-        cpd1 = "MERGE (c1:Compound {{id: \"{id}\"}})".format(id=m["substrate"]["name"])
-        cpd2 = "MERGE (c2:Compound {{id: \"{id}\"}})".format(id=m["product"]["name"])
+    for index, m in enumerate(metabolic_reactions):
+        if m["substrate"]["name"] in compounds.keys():
+            cpd1 = "MERGE (c1:Compound {{{id}}})".format(id=flatten_dict(compounds[m["substrate"]["name"]]))
+        else:
+            cpd1 = "MERGE (c1:Compound {{entry: \"{id}\"}})".format(id=m["substrate"]["name"])
+        if m["product"]["name"] in compounds.keys():
+            cpd2 = "MERGE (c2:Compound {{{id}}})".format(id=flatten_dict(compounds[m["product"]["name"]]))
+        else:
+            cpd2 = "MERGE (c2:Compound {{entry: \"{id}\"}})".format(id=m["product"]["name"])
         if m["type"] == "reversible":
             relation = "-"
         else:
             relation = "->"
-        merge_text = "{cpd1} {cpd2} MERGE (c1)-[:REACTION]{relation}(c2)".format(cpd1=cpd1,relation=relation,cpd2=cpd2)
-        print(index, "    ", merge_text)
+        merge_text = "{cpd1} {cpd2} MERGE (c1)-[:REACTION]{relation}(c2)".format(cpd1=cpd1, relation=relation, cpd2=cpd2)
         tx.append(merge_text)
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
