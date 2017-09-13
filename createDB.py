@@ -377,6 +377,90 @@ def flatten_dict(d):
 
 
 # Create and populate a neo4j database
+def create_db2(reactions, graph, enzymes=None, compounds=None, rclass=None):
+    # clear old data
+    graph.delete_all()
+    # begin Cypher transaction
+    tx = graph.begin()
+    # iterate over each reaction and add to database
+    # include optional data as properties if available
+    print("Processing", len(reactions), "reactions")
+    start_time = time.time()
+    for index, reaction_ref in enumerate(reactions):
+        react_data = dict()
+        r = reactions[reaction_ref]
+        react_data['entry'] = r['entry']
+        if "definition" in r:
+            react_data['definition'] = r['definition']
+        if "equation" in r:
+            react_data['equation'] = r['equation']
+        # include enzyme data
+        if "enzyme" in r:
+            enz_id = "EC " + r['enzyme']
+            if enz_id in enzymes.keys():
+                if 'entry' in enzymes[enz_id]:
+                    react_data['enzyme_entry'] = enzymes[enz_id]['entry']
+                if 'name' in enzymes[enz_id]:
+                    react_data['enzyme_name'] = enzymes[enz_id]['name']
+                if 'pathway' in enzymes[enz_id]:
+                    react_data['enzyme_pathway'] = enzymes[enz_id]['pathway']
+        # include reaction class data
+        if "rclass" in r:
+            for rc in r['rclass']:
+                # loop over reaction class and extract compound data
+                if rc[0] in rclass.keys():
+                    # RClass
+                    if "entry" in rclass[rc[0]]:
+                        react_data['rclass_entry'] = rclass[rc[0]]['entry']
+                    if "definition" in rclass[rc[0]]:
+                        react_data['rclass_definition'] = rclass[rc[0]]['definition']
+                    if "pathway" in rclass[rc[0]]:
+                        react_data['rclass_pathway'] = rclass[rc[0]]['pathway']
+                    if "definition" in rclass[rc[0]]:
+                        react_data['rclass_rpairs'] = rclass[rc[0]]['rpairs']
+                    # Compound 1
+                    if rc[1] in compounds.keys():
+                        cpd1 = "MERGE (c1:Compound {{{id}}})".format(id=flatten_dict(compounds[rc[1]]))
+                    else:
+                        cpd1 = "MERGE (c1:Compound {{entry: \"{id}\"}})".format(id=rc[1])
+                    # Compound 2
+                    if rc[2] in compounds.keys():
+                        cpd2 = "MERGE (c2:Compound {{{id}}})".format(id=flatten_dict(compounds[rc[2]]))
+                    else:
+                        cpd2 = "MERGE (c2:Compound {{entry: \"{id}\"}})".format(id=rc[2])
+                    # Mass change
+                    delta_mass = None
+                    if all([rc[1] in compounds.keys(), rc[2] in compounds.keys()]):
+                        if all(['mass' in compounds[rc[1]], 'mass' in compounds[rc[2]]]):
+                            delta_mass = round(compounds[rc[1]]['mass'] - compounds[rc[2]]['mass'], 4)
+                            react_data['delta_mass'] = delta_mass
+                            react_data['abs_delta_mass'] = abs(delta_mass)
+                    # generate MERGE for cypher transaction
+                    react = "[:REACTION {{{r}}}]".format(r=flatten_dict(react_data))
+                    merge_text = "{cpd1} {cpd2} MERGE (c1)-{react}-(c2)"\
+                        .format(cpd1=cpd1, react=react, cpd2=cpd2)
+                    tx.append(merge_text)
+                    # Create simple connection between pairs of compounds
+                    if delta_mass is not None:
+                        merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION {{abs_delta_mass: \"{m1}\"}}]-(c2)" \
+                            .format(cp1=cpd1, cp2=cpd2, m1=abs(delta_mass))
+                    else:
+                        merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION]-(c2)".format(cp1=cpd1, cp2=cpd2)
+                    tx.append(merge_text)
+    end_time = time.time()
+    print("Time to create transaction =", int(end_time - start_time), "seconds")
+    start_time = time.time()
+    tx.commit()
+    end_time = time.time()
+    print("Time to upload transaction =", int(end_time - start_time), "seconds")
+    return
+
+
+
+
+
+
+# Create and populate a neo4j database
 def create_db(metabolic_reactions, graph, reactions=None, enzymes=None, compounds=None):
     # clear old data
     graph.delete_all()
