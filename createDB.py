@@ -23,11 +23,13 @@ def main():
     # Read in files and create a new database
     reactions = kegg_reactions("C:/Databases/KEGG/reaction/reaction")
     enzymes = kegg_enzymes("C:/Databases/KEGG/enzyme/enzyme")
-    rclass = kegg_rclass("C:/Databases/KEGG/rclass/rclass")
+#    rclass = kegg_rclass("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
-    triples = find_triples(rclass)
+#    triples = find_triples(rclass)
 
-    create_db(triples, rclass, compounds, graph)
+    create_db(metabolic_reactions, graph, reactions, enzymes, compounds)
+
+#    create_db(triples, rclass, compounds, graph)
 
     # Test database
     test_database(graph)
@@ -81,9 +83,13 @@ def read_kegg_xml(folder, use_pathways=None, ignore_pathways=None):
             reaction['pathway_id'] = pathway_number
             reaction['pathway_name'] = pathway_name
             for child in r:
+                # Currently takes just a single substrate or product when multiple are present
                 cpd = dict()
                 cpd['id'] = child.attrib['id']
-                cpd['name'] = child.attrib['name'][4:]
+                if child.attrib['name'][0:2] == "g1":
+                    cpd['name'] = child.attrib['name'][3:9]  # glycan
+                else:
+                    cpd['name'] = child.attrib['name'][4:10]  # limit attribute to 6 characters (only first cpd entry)
                 reaction[child.tag] = cpd
             reactions.append(reaction)
     return reactions
@@ -371,7 +377,7 @@ def flatten_dict(d):
 
 
 # Create and populate a neo4j database
-def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=None, compounds=None):
+def create_db(metabolic_reactions, graph, reactions=None, enzymes=None, compounds=None):
     # clear old data
     graph.delete_all()
     # begin Cypher transaction
@@ -391,6 +397,12 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
             cpd2 = "MERGE (c2:Compound {{{id}}})".format(id=flatten_dict(compounds[m["product"]["name"]]))
         else:
             cpd2 = "MERGE (c2:Compound {{entry: \"{id}\"}})".format(id=m["product"]["name"])
+        # Mass change
+        delta_mass = None
+        if all([m["substrate"]["name"] in compounds.keys(), m["product"]["name"] in compounds.keys()]):
+            if all(['mass' in compounds[m["substrate"]["name"]], 'mass' in compounds[m["product"]["name"]]]):
+                delta_mass = round(compounds[m["product"]["name"]]['mass'] -
+                                   compounds[m["substrate"]["name"]]['mass'], 4)
         # Reaction
         if m["type"] == "reversible":
             relation = "-"
@@ -402,6 +414,9 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
         # loop through reactions
         for react_name in m["name"]:
             react_data["entry"] = react_name
+            if delta_mass is not None:
+                react_data["delta_mass"] = delta_mass
+                react_data["abs_delta_mass"] = abs(delta_mass)
             if react_name in reactions.keys():
                 if "definition" in reactions[react_name]:
                     react_data["definition"] = reactions[react_name]["definition"]
@@ -427,6 +442,14 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
     #        print("{i}    {m}".format(i=index, m=react))
 
             tx.append(merge_text)
+        # Create simple connection between pairs of compounds
+        if delta_mass is not None:
+            merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION {{abs_delta_mass: \"{m1}\"}}]-(c2)"\
+                .format(cp1=cpd1, cp2=cpd2, m1=abs(delta_mass))
+        else:
+            merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION]-(c2)" .format(cp1=cpd1, cp2=cpd2)
+        tx.append(merge_text)
+
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
     start_time = time.time()
@@ -437,7 +460,7 @@ def create_db2(metabolic_reactions, graph, reactions=None, enzymes=None, rclass=
 
 
 # Create and populate a neo4j database
-def create_db(triples, rclass, compounds, graph):
+def create_db_from_triples(triples, rclass, compounds, graph):
     # clear old data
     graph.delete_all()
     # begin Cypher transaction
