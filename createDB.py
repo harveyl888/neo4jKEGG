@@ -23,9 +23,13 @@ def main():
     # Read in files and create a new database
     reactions = kegg_reactions("C:/Databases/KEGG/reaction/reaction")
     enzymes = kegg_enzymes("C:/Databases/KEGG/enzyme/enzyme")
-#    rclass = kegg_rclass("C:/Databases/KEGG/rclass/rclass")
+    rclass = kegg_rclass("C:/Databases/KEGG/rclass/rclass")
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
-#    triples = find_triples(rclass)
+    triples = find_triples(rclass)
+
+    ## Create a new database using rclass triples
+    create_db_from_triples(triples, rclass, compounds, graph)
+
 
     create_db(metabolic_reactions, graph, reactions, enzymes, compounds)
 
@@ -359,9 +363,9 @@ def kegg_compounds(filename):
 def find_triples(rclass):
     triples = []
     for r in rclass:
-        for p in r['rpairs']:
+        for p in rclass[r]['rpairs']:
             rpair_triple = p.split("_")
-            rpair_triple.append(r["entry"])
+            rpair_triple.append(rclass[r]["entry"])
             triples.append(rpair_triple)
     return triples
 
@@ -555,46 +559,30 @@ def create_db_from_triples(triples, rclass, compounds, graph):
     for index, t in enumerate(triples):
         # Lookup each value in triple.  If does not exist then return a record with just the Entry id
         # Compound 1
-        try:
-            c1 = next(item for item in compounds if item['entry'] == t[0])
-        except StopIteration:
-            c1 = {'entry': t[0], 'name': None, 'formula': None, 'mass': None, 'pathway': []}
+        if t[0] in compounds.keys():
+            cpd1 = "MERGE (c1:Compound {{{id}}})".format(id=flatten_dict(compounds[t[0]]))
+        else:
+            cpd1 = "MERGE (c1:Compound {{entry: \"{id}\"}})".format(id=t[0])
         # Compound 2
-        try:
-            c2 = next(item for item in compounds if item['entry'] == t[1])
-        except StopIteration:
-            c2 = {'entry': t[1], 'name': None, 'formula': None, 'mass': None, 'pathway': []}
-        c = [c1, c2]
+        if t[1] in compounds.keys():
+            cpd2 = "MERGE (c2:Compound {{{id}}})".format(id=flatten_dict(compounds[t[1]]))
+        else:
+            cpd2 = "MERGE (c2:Compound {{entry: \"{id}\"}})".format(id=t[1])
         # Reaction
-        try:
-            r = next((item for item in rclass if item['entry'] == t[2]))
-        except StopIteration:
-            r = {'entry': t[2], 'definition': [], 'rpairs': [], 'pathway': []}
-        # Delta mass
-        try:
-            delta_mass = round(c2['mass'] - c1['mass'], 4)
-        except TypeError:
-            delta_mass = None
-
-        merge_text = ""
-        for idx, compound in enumerate(c):
-            merge_text += "MERGE (c{i1}:Compound{{id:\"{id1}\"".format(i1=idx+1, id1=compound['entry'])
-            if compound['name']:
-                merge_text += ", name:\"{name}\"".format(name=compound['name'])
-            if compound['formula']:
-                merge_text += ", formula:\"{formula}\"".format(formula=compound['formula'])
-            if compound['mass']:
-                merge_text += ", mass:{mass}".format(mass=compound['mass'])
-            if compound['pathway']:
-                merge_text += ", pathways:{pathway}".format(pathway=compound['pathway'])
-            merge_text += "}) "
-        merge_text += "CREATE (c1)-[:REACTION{{reaction:\"{reaction}\"".format(reaction=t[2])
-        if r['definition']:
-            merge_text += ", definition:{definition}".format(definition=r['definition'])
-        if delta_mass:
-            merge_text += ", delta_mass:{delta_mass}, abs_delta_mass:{abs_delta_mass}".\
-                format(delta_mass=delta_mass, abs_delta_mass=abs(delta_mass))
-        merge_text += "}]->(c2)"
+        if t[2] in rclass.keys():
+            react_data = rclass[t[2]]
+        else:
+            react_data = {'entry': t[2]}
+        # Mass change
+        if all([t[0] in compounds.keys(), t[1] in compounds.keys()]):
+            if all(['mass' in compounds[t[0]], 'mass' in compounds[t[1]]]):
+                delta_mass = round(compounds[t[0]]['mass'] -
+                                   compounds[t[1]]['mass'], 4)
+                react_data['delta_mass'] = delta_mass
+                react_data['abs_delta_mass'] = abs(delta_mass)
+        react = "[:REACTION {{{r}}}]".format(r=flatten_dict(react_data))
+        merge_text = "{cpd1} {cpd2} MERGE (c1)-{react}-(c2)" \
+            .format(cpd1=cpd1, react=react, cpd2=cpd2)
         tx.append(merge_text)
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
