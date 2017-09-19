@@ -448,7 +448,7 @@ def create_db_from_reactions(reactions, graph, enzymes=None, compounds=None, rcl
                     tx.append(merge_text)
                     # Create simple connection between pairs of compounds
                     if delta_mass is not None:
-                        merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION {{abs_delta_mass: \"{m1}\"}}]-(c2)" \
+                        merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION {{abs_delta_mass: {m1}}}]-(c2)" \
                             .format(cp1=cpd1, cp2=cpd2, m1=abs(delta_mass))
                     else:
                         merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION]-(c2)".format(cp1=cpd1, cp2=cpd2)
@@ -590,22 +590,22 @@ def create_db_from_triples(triples, rclass, compounds, graph):
 
 # A few tests to make sure we can execute cypher queries
 def test_database(graph):
-
     tests = list()
-    tests.append({"title": "Return first 10 compound IDs",
-                  "query": "MATCH (c:Compound) RETURN c.entry LIMIT 10", "dataframe": False})
-    tests.append({"title": "Return first 10 relationships",
-                  "query": "MATCH p=()-[r:REACTION]->() RETURN p LIMIT 10", "dataframe": False})
-    tests.append({"title": "Using dataframes",
-                  "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) RETURN c1.entry, r.entry, c2.entry LIMIT 25",
-                  "dataframe": True})
     ppm_limit = 100
     mass_search = 18.0105
-    tests.append({"title": "Search for mass match - dehydration reactions",
-                  "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) WHERE "
-                           "1E6*abs({mass_search} - r.abs_delta_mass)/{mass_search} < {ppm_limit} RETURN "
-                           "c1.entry, r.entry, c2.entry LIMIT 25".format(mass_search=mass_search, ppm_limit=ppm_limit),
-                  "dataframe": True})
+    tests.append({"title": "Return first 10 compound IDs",
+                  "query": "MATCH (c:Compound) RETURN c.entry LIMIT 10", "dataframe": False})
+    for r in graph.relationship_types:
+        tests.append({"title": "Return first 10 relationships, type = {r}".format(r=r),
+                      "query": "MATCH p=()-[r:{r}]->() RETURN p LIMIT 10".format(r=r), "dataframe": False})
+        tests.append({"title": "Using dataframes", "query": "MATCH p=(c1:Compound)-[r:{r}]->(c2:Compound) "
+                                                            "RETURN c1.entry, r.entry, c2.entry LIMIT 25".format(r=r),
+                      "dataframe": True})
+        tests.append({"title": "Search for mass match - dehydration reactions, type = {r}".format(r=r),
+                      "query": "MATCH p=(c1:Compound)-[r:{r}]->(c2:Compound) WHERE "
+                               "1E6*abs({mass_search} - r.abs_delta_mass)/{mass_search} < {ppm_limit} RETURN "
+                               "c1.entry, r.entry, c2.entry LIMIT 25"
+                     .format(r=r, mass_search=mass_search, ppm_limit=ppm_limit), "dataframe": True})
 
     for t in tests:
         print("\n" + t['title'])
