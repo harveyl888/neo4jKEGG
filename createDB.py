@@ -27,15 +27,14 @@ def main():
     compounds = kegg_compounds("C:/Databases/KEGG/compound/compound")
     triples = find_triples(rclass)
 
-    ## Create a new database using rclass triples
+    # Create a new database using rclass triples
     create_db_from_triples(triples, rclass, compounds, graph)
 
-    ## Create a new database using metabolic reactions parsed from xml files
+    # Create a new database using metabolic reactions parsed from xml files
     create_db_from_xml(metabolic_reactions, graph, reactions, enzymes, compounds)
 
-    ## Create a new database using reactions
+    # Create a new database using reactions
     create_db_from_reactions(reactions, graph, enzymes, compounds, rclass)
-
 
     # Test database
     test_database(graph)
@@ -388,6 +387,7 @@ def create_db_from_reactions(reactions, graph, enzymes=None, compounds=None, rcl
     graph.delete_all()
     # begin Cypher transaction
     tx = graph.begin()
+    cursors = []
     # iterate over each reaction and add to database
     # include optional data as properties if available
     print("Processing", len(reactions), "reactions")
@@ -452,7 +452,7 @@ def create_db_from_reactions(reactions, graph, enzymes=None, compounds=None, rcl
                             .format(cp1=cpd1, cp2=cpd2, m1=abs(delta_mass))
                     else:
                         merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION]-(c2)".format(cp1=cpd1, cp2=cpd2)
-                    tx.append(merge_text)
+                    cursors.append(tx.run(merge_text))
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
     start_time = time.time()
@@ -468,6 +468,7 @@ def create_db_from_xml(metabolic_reactions, graph, reactions=None, enzymes=None,
     graph.delete_all()
     # begin Cypher transaction
     tx = graph.begin()
+    cursors = []
     # iterate over each member of metabolic_reactions and add to database
     # include optional data as properties if available
     print("Processing", len(metabolic_reactions), "reactions")
@@ -531,7 +532,7 @@ def create_db_from_xml(metabolic_reactions, graph, reactions=None, enzymes=None,
                 .format(cp1=cpd1, cp2=cpd2, m1=abs(delta_mass))
         else:
             merge_text = "{cp1} {cp2} MERGE (c1)-[:CONNECTION]-(c2)" .format(cp1=cpd1, cp2=cpd2)
-        tx.append(merge_text)
+        cursors.append(tx.run(merge_text))
 
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
@@ -548,6 +549,7 @@ def create_db_from_triples(triples, rclass, compounds, graph):
     graph.delete_all()
     # begin Cypher transaction
     tx = graph.begin()
+    cursors = []
     # iterate over each triple and add to database
     print("Processing", len(triples), "relationships")
     start_time = time.time()
@@ -578,7 +580,7 @@ def create_db_from_triples(triples, rclass, compounds, graph):
         react = "[:REACTION {{{r}}}]".format(r=flatten_dict(react_data))
         merge_text = "{cpd1} {cpd2} MERGE (c1)-{react}-(c2)" \
             .format(cpd1=cpd1, react=react, cpd2=cpd2)
-        tx.append(merge_text)
+        cursors.append(tx.run(merge_text))
     end_time = time.time()
     print("Time to create transaction =", int(end_time - start_time), "seconds")
     start_time = time.time()
