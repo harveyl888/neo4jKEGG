@@ -593,18 +593,18 @@ def test_database(graph):
 
     tests = list()
     tests.append({"title": "Return first 10 compound IDs",
-                  "query": "MATCH (c:Compound) RETURN c.id LIMIT 10", "dataframe": False})
+                  "query": "MATCH (c:Compound) RETURN c.entry LIMIT 10", "dataframe": False})
     tests.append({"title": "Return first 10 relationships",
                   "query": "MATCH p=()-[r:REACTION]->() RETURN p LIMIT 10", "dataframe": False})
     tests.append({"title": "Using dataframes",
-                  "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) RETURN c1.id, r.reaction, c2.id LIMIT 25",
+                  "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) RETURN c1.entry, r.entry, c2.entry LIMIT 25",
                   "dataframe": True})
     ppm_limit = 100
     mass_search = 18.0105
     tests.append({"title": "Search for mass match - dehydration reactions",
                   "query": "MATCH p=(c1:Compound)-[r:REACTION]->(c2:Compound) WHERE "
                            "1E6*abs({mass_search} - r.abs_delta_mass)/{mass_search} < {ppm_limit} RETURN "
-                           "c1.id, r.reaction, c2.id LIMIT 25".format(mass_search=mass_search, ppm_limit=ppm_limit),
+                           "c1.entry, r.entry, c2.entry LIMIT 25".format(mass_search=mass_search, ppm_limit=ppm_limit),
                   "dataframe": True})
 
     for t in tests:
