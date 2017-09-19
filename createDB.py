@@ -30,10 +30,12 @@ def main():
     ## Create a new database using rclass triples
     create_db_from_triples(triples, rclass, compounds, graph)
 
+    ## Create a new database using metabolic reactions parsed from xml files
+    create_db_from_xml(metabolic_reactions, graph, reactions, enzymes, compounds)
 
-    create_db(metabolic_reactions, graph, reactions, enzymes, compounds)
+    ## Create a new database using reactions
+    create_db_from_reactions(reactions, graph, enzymes, compounds, rclass)
 
-#    create_db(triples, rclass, compounds, graph)
 
     # Test database
     test_database(graph)
@@ -381,7 +383,7 @@ def flatten_dict(d):
 
 
 # Create and populate a neo4j database
-def create_db2(reactions, graph, enzymes=None, compounds=None, rclass=None):
+def create_db_from_reactions(reactions, graph, enzymes=None, compounds=None, rclass=None):
     # clear old data
     graph.delete_all()
     # begin Cypher transaction
@@ -460,12 +462,8 @@ def create_db2(reactions, graph, enzymes=None, compounds=None, rclass=None):
     return
 
 
-
-
-
-
-# Create and populate a neo4j database
-def create_db(metabolic_reactions, graph, reactions=None, enzymes=None, compounds=None):
+# Create and populate a neo4j database using data read from kgml (xml) files
+def create_db_from_xml(metabolic_reactions, graph, reactions=None, enzymes=None, compounds=None):
     # clear old data
     graph.delete_all()
     # begin Cypher transaction
@@ -526,9 +524,6 @@ def create_db(metabolic_reactions, graph, reactions=None, enzymes=None, compound
             react = "[:REACTION {{{r}}}]".format(r=flatten_dict(react_data))
             merge_text = "{cpd1} {cpd2} MERGE (c1)-{react}{relation}(c2)"\
                 .format(cpd1=cpd1, react=react, relation=relation, cpd2=cpd2)
-
-    #        print("{i}    {m}".format(i=index, m=react))
-
             tx.append(merge_text)
         # Create simple connection between pairs of compounds
         if delta_mass is not None:
