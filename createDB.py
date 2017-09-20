@@ -28,10 +28,10 @@ def main():
     triples = find_triples(rclass)
 
     # Create a new database using rclass triples
-    create_db_from_triples(triples, rclass, compounds, graph)
+    # create_db_from_triples(triples, rclass, compounds, graph)
 
     # Create a new database using metabolic reactions parsed from xml files
-    create_db_from_xml(metabolic_reactions, graph, reactions, enzymes, compounds)
+    # create_db_from_xml(metabolic_reactions, graph, reactions, enzymes, compounds)
 
     # Create a new database using reactions
     create_db_from_reactions(reactions, graph, enzymes, compounds, rclass)
@@ -381,7 +381,10 @@ def flatten_dict(d):
     return ", ".join(out)
 
 
-# Create and populate a neo4j database
+# Create and populate a neo4j database using data from reactions
+# Reaction data are cross-referenced with compounds, rclass and enzyme
+# Two sets of relationships are generated - connections which specify a non-directional edge between two compound
+# nodes and reactions which are directional and contain additional data
 def create_db_from_reactions(reactions, graph, enzymes=None, compounds=None, rclass=None):
     # clear old data
     graph.delete_all()
@@ -463,6 +466,8 @@ def create_db_from_reactions(reactions, graph, enzymes=None, compounds=None, rcl
 
 
 # Create and populate a neo4j database using data read from kgml (xml) files
+# Data are cross-referenced with compounds, reactions and enzyme
+# The KEGG xml files are incomplete and not all network reactions are detailed using this approach
 def create_db_from_xml(metabolic_reactions, graph, reactions=None, enzymes=None, compounds=None):
     # clear old data
     graph.delete_all()
@@ -543,7 +548,8 @@ def create_db_from_xml(metabolic_reactions, graph, reactions=None, enzymes=None,
     return
 
 
-# Create and populate a neo4j database
+# Create and populate a neo4j database using rclass and compound data
+# This is the simplest approach, however rclass data are non-directional
 def create_db_from_triples(triples, rclass, compounds, graph):
     # clear old data
     graph.delete_all()
